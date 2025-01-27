@@ -1,38 +1,46 @@
 import streamlit as st
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+import json
+from google.oauth2.service_account import Credentials
+from datetime import datetime
 import pandas as pd
-from datetime import datetime, timedelta
-import os
 
-# Constants
-SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-SHEET_NAME = "Student_Updates"  # Replace with your Google Sheet name
 
-# Load Google Sheets Credentials from Secrets
-CREDENTIALS_FILE = "studentupdate-449023-babe5a875351.json"
-if not os.path.exists(CREDENTIALS_FILE):
-    with open(CREDENTIALS_FILE, "w") as f:
-        f.write(st.secrets["SERVICE_ACCOUNT_JSON"])
+# Google Sheets setup
+def get_worksheet(sheet_name):
+    try:
+        # Load credentials from Streamlit secrets
+        service_account_info = st.secrets["SERVICE_ACCOUNT_JSON"]
+        credentials = Credentials.from_service_account_info(json.loads(service_account_info))
+        client = gspread.authorize(credentials)
+        return client.open(sheet_name).sheet1
+    except Exception as e:
+        st.error(f"Error connecting to Google Sheets: {e}")
+        st.stop()
 
-@st.experimental_singleton
-def get_worksheet():
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, SCOPE)
-    client = gspread.authorize(credentials)
-    sheet = client.open(SHEET_NAME).sheet1
-    return sheet
 
 # Load data from Google Sheets
-def load_data():
-    worksheet = get_worksheet()
-    records = worksheet.get_all_records()
-    return pd.DataFrame(records)
+def load_data(sheet):
+    try:
+        records = sheet.get_all_records()
+        if records:
+            return pd.DataFrame(records)
+        else:
+            # Return empty DataFrame with required columns if no data
+            return pd.DataFrame(columns=["Student Name", "Phone Number", "Date", "Update", "Update Count"])
+    except Exception as e:
+        st.error(f"Error loading data from Google Sheets: {e}")
+        return pd.DataFrame(columns=["Student Name", "Phone Number", "Date", "Update", "Update Count"])
+
 
 # Save data to Google Sheets
-def save_data(data):
-    worksheet = get_worksheet()
-    worksheet.clear()  # Clear existing data
-    worksheet.update([data.columns.values.tolist()] + data.values.tolist())  # Write new data
+def save_data(sheet, data):
+    try:
+        sheet.clear()
+        sheet.update([data.columns.values.tolist()] + data.values.tolist())
+    except Exception as e:
+        st.error(f"Error saving data to Google Sheets: {e}")
+
 
 # Check for inactivity and generate alerts
 def check_inactivity(data):
@@ -46,17 +54,25 @@ def check_inactivity(data):
             alerts = inactive_students[["Student Name", "Days Since Last Update"]].to_dict("records")
     return alerts
 
-# Load existing data
-try:
-    students_data = load_data()
-except Exception as e:
-    st.error(f"Error loading data: {e}")
-    students_data = pd.DataFrame(columns=["Student Name", "Phone Number", "Date", "Update", "Update Count"])
 
-# Streamlit App
+# Main Streamlit app
 st.title("Real-Time Student Update System with Alerts")
 
-# Add new student update
+# Google Sheet name
+SHEET_NAME = "Student Updates"  # Replace with your actual Google Sheet name
+sheet = get_worksheet(SHEET_NAME)
+
+# Load existing data
+students_data = load_data(sheet)
+
+# Initialize the DataFrame with required columns if empty
+if students_data.empty:
+    students_data = pd.DataFrame(columns=["Student Name", "Phone Number", "Date", "Update", "Update Count"])
+
+# Debug: Display column names (optional, for troubleshooting)
+st.write("Column Names:", students_data.columns.tolist())
+
+# Add a new update
 st.sidebar.header("Add New Student Update")
 with st.sidebar.form("entry_form"):
     student_name = st.text_input("Student Name")
@@ -67,14 +83,14 @@ with st.sidebar.form("entry_form"):
 
 if submit_button:
     if student_name and phone_number and update_text:
-        # Check if the student already exists and increment the update count
-        if student_name in students_data["Student Name"].values:
+        # Check if the student already exists
+        if student_name in students_data.get("Student Name", pd.Series()).values:
             existing_student = students_data[students_data["Student Name"] == student_name]
             update_count = existing_student["Update Count"].max() + 1
         else:
             update_count = 1
 
-        # Add new update
+        # Add the new update
         new_data = {
             "Student Name": student_name,
             "Phone Number": phone_number,
@@ -83,11 +99,8 @@ if submit_button:
             "Update Count": update_count,
         }
         students_data = pd.concat([students_data, pd.DataFrame([new_data])], ignore_index=True)
-        try:
-            save_data(students_data)
-            st.success(f"Update #{update_count} added for {student_name}")
-        except Exception as e:
-            st.error(f"Error saving data: {e}")
+        save_data(sheet, students_data)
+        st.success(f"Update #{update_count} added for {student_name}")
     else:
         st.error("Please fill in all fields.")
 
@@ -126,11 +139,8 @@ if alerts:
                     "Update Count": current_count + 1,
                 }
                 students_data = pd.concat([students_data, pd.DataFrame([new_update])], ignore_index=True)
-                try:
-                    save_data(students_data)
-                    st.success(f"Update #{current_count + 1} added for {student_name}")
-                except Exception as e:
-                    st.error(f"Error saving data: {e}")
+                save_data(sheet, students_data)
+                st.success(f"Update #{current_count + 1} added for {student_name}")
 else:
     st.success("All students have recent updates.")
 
