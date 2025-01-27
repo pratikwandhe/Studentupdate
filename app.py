@@ -7,7 +7,7 @@ import os
 
 # Constants
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-SHEET_NAME = "Student Updates"  # Replace with your Google Sheet name
+SHEET_NAME = "Student_Updates"  # Replace with your Google Sheet name
 
 # Load Google Sheets Credentials from Secrets
 CREDENTIALS_FILE = "studentupdate-449023-babe5a875351.json"
