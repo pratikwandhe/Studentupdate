@@ -10,7 +10,7 @@ SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 SHEET_NAME = "Student Updates"  # Replace with your Google Sheet name
 
 # Load Google Sheets Credentials from Secrets
-CREDENTIALS_FILE = "service_account.json"
+CREDENTIALS_FILE = "studentupdate-449023-babe5a875351.json"
 if not os.path.exists(CREDENTIALS_FILE):
     with open(CREDENTIALS_FILE, "w") as f:
         f.write(st.secrets["SERVICE_ACCOUNT_JSON"])
