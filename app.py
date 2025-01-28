@@ -29,6 +29,13 @@ def load_data(sheet):
 # ✅ Save data to Google Sheets
 def save_data(sheet, data):
     try:
+        # Convert all NaN/None values to empty strings
+        data = data.fillna("")
+        
+        # Ensure all values are strings before saving (Google Sheets expects string-like values)
+        data = data.astype(str)
+        
+        # Save data to Google Sheets
         sheet.clear()
         sheet.update([data.columns.values.tolist()] + data.values.tolist())
     except Exception as e:
