@@ -38,10 +38,10 @@ def save_data(sheet, data):
 def highlight_inactivity(data):
     today = datetime.today()
     
-    # 🔹 Find the latest update column for each student
-    update_columns = [col for col in data.columns if col.startswith("Update")]
-    if update_columns:
-        data["Last Update Date"] = data[update_columns].notna().idxmax(axis=1).apply(lambda x: x.split(" ")[-1] if pd.notna(x) else None)
+    # 🔹 Find the latest update date for each student
+    update_date_columns = [col for col in data.columns if "Update" in col and "Date" in col]
+    if update_date_columns:
+        data["Last Update Date"] = data[update_date_columns].max(axis=1)
         data["Last Update Date"] = pd.to_datetime(data["Last Update Date"], errors='coerce')
         data["Days Since Last Update"] = (today - data["Last Update Date"]).dt.days
 
@@ -85,18 +85,22 @@ if selected_name in students_data["Student Name"].values:
     # 🔹 Student Exists → Only Ask for Update
     with st.sidebar.form("update_form"):
         update_text = st.text_area("📝 Enter Update")
+        update_date = st.date_input("📅 Update Date", value=datetime.today())
         submit_button = st.form_submit_button("✅ Add Update")
 
     if submit_button and update_text:
         student_row = students_data[students_data["Student Name"] == selected_name]
         update_count = int(student_row["Update Count"].values[0]) + 1
-        update_col = f"Update {update_count} {datetime.today().strftime('%Y-%m-%d')}"
+        update_text_col = f"Update {update_count} Text"
+        update_date_col = f"Update {update_count} Date"
 
-        # 🔹 Append new update as a new column
-        if update_col not in students_data.columns:
-            students_data[update_col] = ""
+        # 🔹 Append new update and date as new columns
+        if update_text_col not in students_data.columns:
+            students_data[update_text_col] = ""
+            students_data[update_date_col] = ""
 
-        students_data.loc[students_data["Student Name"] == selected_name, update_col] = update_text
+        students_data.loc[students_data["Student Name"] == selected_name, update_text_col] = update_text
+        students_data.loc[students_data["Student Name"] == selected_name, update_date_col] = update_date.strftime('%Y-%m-%d')
         students_data.loc[students_data["Student Name"] == selected_name, "Update Count"] = update_count
 
         # ✅ Highlight inactivity
@@ -111,17 +115,20 @@ else:
     with st.sidebar.form("entry_form"):
         phone_number = st.text_input("📞 Phone Number", value="")
         update_text = st.text_area("📝 First Update")
+        update_date = st.date_input("📅 Update Date", value=datetime.today())
         submit_button = st.form_submit_button("✅ Add Student")
 
     if submit_button and selected_name and phone_number and update_text:
-        update_col = f"Update 1 {datetime.today().strftime('%Y-%m-%d')}"
+        update_text_col = "Update 1 Text"
+        update_date_col = "Update 1 Date"
 
         # 🔹 Add New Student Entry
         new_data = {
             "Student Name": selected_name,
             "Phone Number": phone_number,
             "Update Count": 1,
-            update_col: update_text
+            update_text_col: update_text,
+            update_date_col: update_date.strftime('%Y-%m-%d')
         }
         
         students_data = pd.concat([students_data, pd.DataFrame([new_data])], ignore_index=True)
