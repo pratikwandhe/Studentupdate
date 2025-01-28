@@ -68,7 +68,7 @@ def check_inactivity(data):
 st.title("📌 Real-Time Student Update System with Alerts")
 
 # Google Sheet name
-SHEET_NAME = "Student Updates"  # Replace with your actual Google Sheet name
+SHEET_NAME = "Student_Updates"  # Replace with your actual Google Sheet name
 sheet = get_worksheet(SHEET_NAME)
 
 # ✅ Load existing data
@@ -114,7 +114,7 @@ if submit_button:
         st.error("❌ Please fill in all fields.")
 
 # ✅ Display Student Updates
-st.markdown("## 📜 Student Updates")
+st.markdown("## 📜 Student_Updates")
 if not students_data.empty:
     st.dataframe(students_data, use_container_width=True)
 else:
