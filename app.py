@@ -48,7 +48,7 @@ def highlight_inactivity(data):
 st.title("📌 Real-Time Student Update System with Alerts")
 
 # Google Sheet name
-SHEET_NAME = "Student Updates"
+SHEET_NAME = "Student_Updates"
 sheet = get_worksheet(SHEET_NAME)
 
 # ✅ Load existing data
