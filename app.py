@@ -42,20 +42,29 @@ def save_data(sheet, data):
         st.error(f"❌ Error saving data to Google Sheets: {e}")
 
 # ✅ Highlight inactive students (No update in 14 days)
+# ✅ Function to Highlight Inactivity (Fix Date Conversion)
 def highlight_inactivity(data):
     today = datetime.today()
-    
-    # 🔹 Find the latest update date for each student
+
+    # 🔹 Find all columns that store update dates
     update_date_columns = [col for col in data.columns if "Update" in col and "Date" in col]
+
     if update_date_columns:
+        # ✅ Convert all update date columns to datetime format (handling errors)
+        for col in update_date_columns:
+            data[col] = pd.to_datetime(data[col], errors='coerce')
+
+        # ✅ Find the most recent update for each student
         data["Last Update Date"] = data[update_date_columns].max(axis=1)
-        data["Last Update Date"] = pd.to_datetime(data["Last Update Date"], errors='coerce')
+
+        # ✅ Calculate days since last update
         data["Days Since Last Update"] = (today - data["Last Update Date"]).dt.days
 
-        # 🔹 Mark as inactive if last update was more than 14 days ago
+        # ✅ Mark as inactive if last update was more than 14 days ago
         data["Inactive"] = data["Days Since Last Update"] > 14
     else:
-        data["Inactive"] = False  # If no updates, don't mark inactive
+        # If no update columns exist, assume no students are inactive
+        data["Inactive"] = False
 
     return data
 
