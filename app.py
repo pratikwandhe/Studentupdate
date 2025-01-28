@@ -8,25 +8,10 @@ import pandas as pd
 # ✅ Google Sheets setup with OAuth Scopes
 def get_worksheet(sheet_name):
     try:
-        # Load credentials from Streamlit secrets
         service_account_info = st.secrets["SERVICE_ACCOUNT_JSON"]
-        
-        # Define required OAuth scopes
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
-        
-        # Create credentials with the specified scopes
-        credentials = Credentials.from_service_account_info(
-            json.loads(service_account_info),
-            scopes=scopes
-        )
-        
-        # Authorize the credentials with gspread
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        credentials = Credentials.from_service_account_info(json.loads(service_account_info), scopes=scopes)
         client = gspread.authorize(credentials)
-        
-        # Open the specified Google Sheet
         return client.open(sheet_name).sheet1
     except Exception as e:
         st.error(f"❌ Error connecting to Google Sheets: {e}")
@@ -53,25 +38,17 @@ def save_data(sheet, data):
         st.error(f"❌ Error saving data to Google Sheets: {e}")
 
 # ✅ Highlight inactive rows (No update in 7 days)
-def highlight_inactivity(sheet, data):
+def highlight_inactivity(data):
     today = datetime.today()
     data["Days Since Last Update"] = (today - pd.to_datetime(data["Date"])).dt.days
     data["Inactive"] = data["Days Since Last Update"] > 7
-
-    # ✅ Update Google Sheets with highlighting
-    sheet.clear()
-    headers = data.columns.values.tolist()
-    values = data.values.tolist()
-    
-    sheet.update([headers] + values)
-
     return data
 
 # ✅ Main Streamlit App
 st.title("📌 Real-Time Student Update System with Alerts")
 
 # Google Sheet name
-SHEET_NAME = "Student_Updates"  # Replace with your actual Google Sheet name
+SHEET_NAME = "Student Updates"
 sheet = get_worksheet(SHEET_NAME)
 
 # ✅ Load existing data
@@ -98,7 +75,6 @@ with st.sidebar.form("entry_form"):
 
 if submit_button:
     if selected_name and phone_number and update_text:
-        # Check if student exists
         if selected_name in students_data["Student Name"].values:
             existing_student = students_data[students_data["Student Name"] == selected_name]
             update_count = existing_student["Update Count"].max() + 1
@@ -114,13 +90,7 @@ if submit_button:
             "Update Count": update_count,
         }
         students_data = pd.concat([students_data, pd.DataFrame([new_data])], ignore_index=True)
-        
-        # ✅ Highlight inactivity
-        students_data = highlight_inactivity(sheet, students_data)
-        
-        # ✅ Save updated data
         save_data(sheet, students_data)
-
         st.success(f"✅ Update #{update_count} added for {selected_name}")
     else:
         st.error("❌ Please fill in all fields.")
@@ -133,14 +103,18 @@ else:
     st.info("ℹ️ No updates added yet.")
 
 # ✅ Generate Inactivity Alerts (Highlight & Display in UI)
-alerts = students_data[students_data["Inactive"] == True]
+students_data = highlight_inactivity(students_data)  # Ensure 'Inactive' column is added
 
 st.markdown("## ⚠️ Alerts for Inactivity")
-if not alerts.empty:
-    st.warning("🚨 The following students have no updates in over a week:")
-    st.dataframe(alerts[["Student Name", "Days Since Last Update"]])
+if "Inactive" in students_data.columns:  # Ensure 'Inactive' column exists
+    alerts = students_data[students_data["Inactive"] == True]
+    if not alerts.empty:
+        st.warning("🚨 The following students have no updates in over a week:")
+        st.dataframe(alerts[["Student Name", "Days Since Last Update"]])
+    else:
+        st.success("✅ All students have recent updates.")
 else:
-    st.success("✅ All students have recent updates.")
+    st.error("❌ Unable to generate inactivity alerts.")
 
 # ✅ Footer
 st.markdown("<hr><p style='text-align: center;'>© 2025 SPH Team</p>", unsafe_allow_html=True)
