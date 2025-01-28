@@ -2,7 +2,7 @@ import streamlit as st
 import gspread
 import json
 from google.oauth2.service_account import Credentials
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 
 # ✅ Google Sheets setup
@@ -33,6 +33,24 @@ def save_data(sheet, data):
         sheet.update([data.columns.values.tolist()] + data.values.tolist())
     except Exception as e:
         st.error(f"❌ Error saving data to Google Sheets: {e}")
+
+# ✅ Highlight inactive students (No update in 14 days)
+def highlight_inactivity(data):
+    today = datetime.today()
+    
+    # 🔹 Find the latest update column for each student
+    update_columns = [col for col in data.columns if col.startswith("Update")]
+    if update_columns:
+        data["Last Update Date"] = data[update_columns].notna().idxmax(axis=1).apply(lambda x: x.split(" ")[-1] if pd.notna(x) else None)
+        data["Last Update Date"] = pd.to_datetime(data["Last Update Date"], errors='coerce')
+        data["Days Since Last Update"] = (today - data["Last Update Date"]).dt.days
+
+        # 🔹 Mark as inactive if last update was more than 14 days ago
+        data["Inactive"] = data["Days Since Last Update"] > 14
+    else:
+        data["Inactive"] = False  # If no updates, don't mark inactive
+
+    return data
 
 # ✅ Main Streamlit App
 st.title("📌 Real-Time Student Update System with Alerts")
@@ -72,14 +90,17 @@ if selected_name in students_data["Student Name"].values:
     if submit_button and update_text:
         student_row = students_data[students_data["Student Name"] == selected_name]
         update_count = int(student_row["Update Count"].values[0]) + 1
-        update_col = f"Update {update_count}"
-        
+        update_col = f"Update {update_count} {datetime.today().strftime('%Y-%m-%d')}"
+
         # 🔹 Append new update as a new column
         if update_col not in students_data.columns:
             students_data[update_col] = ""
 
         students_data.loc[students_data["Student Name"] == selected_name, update_col] = update_text
         students_data.loc[students_data["Student Name"] == selected_name, "Update Count"] = update_count
+
+        # ✅ Highlight inactivity
+        students_data = highlight_inactivity(students_data)
 
         # ✅ Save updated data
         save_data(sheet, students_data)
@@ -93,7 +114,7 @@ else:
         submit_button = st.form_submit_button("✅ Add Student")
 
     if submit_button and selected_name and phone_number and update_text:
-        update_col = "Update 1"
+        update_col = f"Update 1 {datetime.today().strftime('%Y-%m-%d')}"
 
         # 🔹 Add New Student Entry
         new_data = {
@@ -105,6 +126,9 @@ else:
         
         students_data = pd.concat([students_data, pd.DataFrame([new_data])], ignore_index=True)
         
+        # ✅ Highlight inactivity
+        students_data = highlight_inactivity(students_data)
+
         # ✅ Save updated data
         save_data(sheet, students_data)
         st.success(f"✅ Student {selected_name} added with first update")
@@ -115,6 +139,20 @@ if not students_data.empty:
     st.dataframe(students_data, use_container_width=True)
 else:
     st.info("ℹ️ No updates added yet.")
+
+# ✅ Generate Inactivity Alerts (Highlight & Display in UI)
+students_data = highlight_inactivity(students_data)  # Ensure 'Inactive' column is added
+
+st.markdown("## ⚠️ Alerts for Inactivity")
+if "Inactive" in students_data.columns:
+    alerts = students_data[students_data["Inactive"] == True]
+    if not alerts.empty:
+        st.warning("🚨 The following students have no updates in over 14 days:")
+        st.dataframe(alerts[["Student Name", "Days Since Last Update"]])
+    else:
+        st.success("✅ All students have recent updates.")
+else:
+    st.error("❌ Unable to generate inactivity alerts.")
 
 # ✅ Footer
 st.markdown("<hr><p style='text-align: center;'>© 2025 SPH Team</p>", unsafe_allow_html=True)
