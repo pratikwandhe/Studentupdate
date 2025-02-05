@@ -3,19 +3,40 @@ import gspread
 import json
 import pandas as pd
 import smtplib
-from email.mime.text import MIMEText
 from google.oauth2.service_account import Credentials
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # ✅ Page Configuration
-st.set_page_config(page_title="Chaitrali's Lead Tracker", page_icon="📊", layout="wide")
+st.set_page_config(
+    page_title="Chaitrali's Lead Tracker",
+    page_icon="📊",
+    layout="wide"
+)
 
-# ✅ Load Branch Data
-@st.cache_resource
-def load_branch_data():
-    return pd.read_excel("new_branch1.xlsx")
-
-branch_data = load_branch_data()
+# ✅ Custom CSS for UI Styling
+st.markdown("""
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .block-container {
+            padding-top: 1rem;
+        }
+        h1, h2, h3 {
+            color: #2b6777;
+        }
+        .stButton>button {
+            background-color: #52b69a !important;
+            color: white !important;
+            border-radius: 10px !important;
+            padding: 8px 16px !important;
+        }
+        .stDataFrame {
+            border: 1px solid #2b6777;
+            border-radius: 10px;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # ✅ Google Sheets Setup
 def get_worksheet(sheet_name):
@@ -29,25 +50,36 @@ def get_worksheet(sheet_name):
         st.error(f"❌ Error connecting to Google Sheets: {e}")
         st.stop()
 
-# ✅ Load Data from Google Sheets
+# ✅ Load data from Google Sheets
 def load_data(sheet):
     try:
         records = sheet.get_all_records()
-        return pd.DataFrame(records) if records else pd.DataFrame(columns=["Student Name", "Phone Number", "District", "Update Count"])
+        return pd.DataFrame(records) if records else pd.DataFrame(columns=["Student Name", "Phone Number", "District", "Branch", "Update Count"])
     except Exception as e:
-        st.error(f"❌ Error loading data: {e}")
-        return pd.DataFrame(columns=["Student Name", "Phone Number", "District", "Update Count"])
+        st.error(f"❌ Error loading data from Google Sheets: {e}")
+        return pd.DataFrame(columns=["Student Name", "Phone Number", "District", "Branch", "Update Count"])
 
-# ✅ Save Data to Google Sheets
+# ✅ Load Branch Data from Excel
+@st.cache_resource
+def load_branch_data():
+    try:
+        branch_df = pd.read_excel("new_branch1.xlsx")
+        return branch_df
+    except Exception as e:
+        st.error(f"❌ Error loading branch data: {e}")
+        return pd.DataFrame(columns=["State", "Branch", "District", "Branch Head"])
+
+# ✅ Save data to Google Sheets
 def save_data(sheet, data):
     try:
-        data = data.fillna("").astype(str)
+        data = data.fillna("")  # Replace NaN with empty string
+        data = data.astype(str)  # Convert everything to string before saving
         sheet.clear()
         sheet.update([data.columns.values.tolist()] + data.values.tolist())
     except Exception as e:
-        st.error(f"❌ Error saving data: {e}")
+        st.error(f"❌ Error saving data to Google Sheets: {e}")
 
-# ✅ Highlight Inactivity (No Update in 14 Days)
+# ✅ Highlight Inactive Leads (No update in 14 days)
 def highlight_inactivity(data):
     today = datetime.today()
     update_date_columns = [col for col in data.columns if "Update" in col and "Date" in col]
@@ -65,46 +97,54 @@ def highlight_inactivity(data):
     return data
 
 # ✅ Function to Send Email
-def send_email(recipient, subject, body):
-    sender_email = "pratikwandhe9095.com"
-    sender_password = "fixx dnwn jpin bwix"
-
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = sender_email
-    msg["To"] = recipient
+def send_email(recipient_email, branch, lead_data):
+    sender_email = "pratikwandhe9095@gmail.com"  # Replace with your email
+    sender_password = "fixx dnwn jpin bwix"  # Replace with your password
+    subject = f"Leads Update for {branch}"
+    
+    # Formatting the email content
+    email_body = f"Hello,\n\nHere are the latest lead updates for {branch}:\n\n"
+    email_body += lead_data.to_string(index=False)
+    email_body += "\n\nBest regards,\nChaitrali's Lead Manager"
 
     try:
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        server.login(sender_email, sender_password)
-        server.sendmail(sender_email, recipient, msg.as_string())
-        server.quit()
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            message = f"Subject: {subject}\n\n{email_body}"
+            server.sendmail(sender_email, recipient_email, message)
         return True
     except Exception as e:
-        st.error(f"❌ Failed to send email: {e}")
+        st.error(f"❌ Error sending email: {e}")
         return False
 
-# ✅ Main Streamlit App
+# ✅ Main App
 st.title("📊 Chaitrali's Lead Tracker")
+st.markdown("### 📌 Manage Your Leads & Stay Updated")
 
-# Google Sheet
+# ✅ Load data
 SHEET_NAME = "Student_Updates"
 sheet = get_worksheet(SHEET_NAME)
 students_data = load_data(sheet)
+branch_data = load_branch_data()
 
-# Initialize Data
 if students_data.empty:
-    students_data = pd.DataFrame(columns=["Student Name", "Phone Number", "District", "Update Count"])
+    students_data = pd.DataFrame(columns=["Student Name", "Phone Number", "District", "Branch", "Update Count"])
 
-# ✅ Sidebar: Add New Lead
-st.sidebar.header("➕ Add New Lead")
-selected_name = st.sidebar.text_input("👤 Lead Name", "").strip()
-
-# ✅ Auto-suggestion for existing names
+# ✅ Name Auto-Suggestion
 existing_names = students_data["Student Name"].unique().tolist()
-matching_names = [name for name in existing_names if selected_name.lower() in name.lower()]
-if matching_names:
-    selected_name = st.sidebar.selectbox("📝 Select or Confirm Name", matching_names + [selected_name], index=0)
+
+# 🔍 Name Autocomplete Feature
+selected_name = st.sidebar.text_input("👤 Start typing a Lead Name", "").strip()
+
+if selected_name:
+    matching_names = [name for name in existing_names if selected_name.lower() in name.lower()]
+    if matching_names:
+        selected_name = st.sidebar.selectbox("📝 Select or Confirm Name", matching_names + [selected_name], index=0)
+
+# ✅ Sidebar: Add New Update
+st.sidebar.markdown("---")
+st.sidebar.header("📌 Add New Lead Update")
 
 if selected_name in students_data["Student Name"].values:
     with st.sidebar.form("update_form"):
@@ -134,14 +174,14 @@ if selected_name in students_data["Student Name"].values:
 for branch, group in branch_data.groupby("Branch"):
     st.markdown(f"### 🏢 {branch}")
     branch_head = group.iloc[0]
-    st.write(f"**Branch Head:** {branch_head['Branch Head']} | 📧 {branch_head['Email']} | 📞 {branch_head['Phone']}")
+    st.write(f"**Branch Head:** {branch_head['Branch Head']}")
 
-    branch_leads = students_data[students_data["District"].isin(group["District"])]
-    st.dataframe(branch_leads)
-
-    if st.button(f"📧 Send Updates to {branch_head['Branch Head']}", key=branch):
-        email_body = branch_leads.to_string()
-        if send_email(branch_head["Email"], f"Leads for {branch}", email_body):
-            st.success(f"✅ Email sent to {branch_head['Branch Head']}")
+    branch_leads = students_data[students_data["Branch"] == branch]
+    if not branch_leads.empty:
+        st.dataframe(branch_leads, use_container_width=True)
+        recipient_email = st.text_input(f"📧 Enter Email for {branch}", key=branch)
+        if st.button(f"📩 Send Leads to {branch} Head", key=f"send_{branch}"):
+            if send_email(recipient_email, branch, branch_leads):
+                st.success(f"✅ Email sent successfully to {recipient_email}")
 
 st.markdown("<hr><p style='text-align: center;'>© 2025 Chaitrali's Lead Manager</p>", unsafe_allow_html=True)
