@@ -62,14 +62,16 @@ def load_data(sheet):
         return pd.DataFrame(columns=["Lead Name", "District", "Branch", "Update Count"])
 
 # ✅ Load Branch Data from Excel
+# ✅ Load Branch Data from Excel
 @st.cache_data
 def load_branch_data():
     try:
-        branch_df = pd.read_excel("/mnt/data/new_branch1.xlsx")
+        branch_df = pd.read_excel("new_branch1.xlsx")
         return branch_df
     except Exception as e:
         st.error(f"❌ Error loading branch data: {e}")
         return pd.DataFrame(columns=["State", "Branch", "District", "Branch Head"])
+
 
 # ✅ Save data to Google Sheets
 def save_data(sheet, data):
