@@ -106,7 +106,7 @@ branch_data = load_branch_data()
 if students_data.empty:
     students_data = pd.DataFrame(columns=["Lead Name", "District", "Branch", "Update Count"])
 
-# ✅ Sidebar: Add New Update Form
+# ✅ Sidebar: Add New Lead or Update Form
 st.sidebar.header("📌 Add or Update a Lead")
 
 # ✅ Name Auto-Suggestion
@@ -143,6 +143,33 @@ if selected_name and selected_name in students_data["Lead Name"].values:
 
         save_data(sheet, students_data)
         st.success(f"✅ Update #{update_count} added for {selected_name}")
+
+else:
+    with st.sidebar.form("entry_form"):
+        district = st.selectbox("🏢 Select District", branch_data["District"].unique())
+        branch = branch_data.loc[branch_data["District"] == district, "Branch"].unique()[0]
+        phone_number = st.text_input("📞 Phone Number", value="")
+        update_text = st.text_area("📝 First Update")
+        update_date = st.date_input("📅 Update Date", value=datetime.today())
+        submit_button = st.form_submit_button("✅ Add Lead")
+
+    if submit_button and selected_name and phone_number and update_text:
+        update_text_col = "Update 1 Text"
+        update_date_col = "Update 1 Date"
+
+        new_data = {
+            "Lead Name": selected_name,
+            "District": district,
+            "Branch": branch,
+            "Update Count": 1,
+            update_text_col: update_text,
+            update_date_col: update_date.strftime('%Y-%m-%d')
+        }
+
+        students_data = pd.concat([students_data, pd.DataFrame([new_data])], ignore_index=True)
+        students_data = highlight_inactivity(students_data)
+        save_data(sheet, students_data)
+        st.success(f"✅ Lead {selected_name} added with first update")
 
 # ✅ Display Leads by Branch
 st.markdown("## 🏢 Leads by Branch")
