@@ -13,7 +13,7 @@ st.set_page_config(page_title="Chaitrali's Lead Tracker", page_icon="📊", layo
 # ✅ Load Branch Data
 @st.cache_resource
 def load_branch_data():
-    return pd.read_excel("new_branch.xlsx")
+    return pd.read_excel("new_branch1.xlsx")
 
 branch_data = load_branch_data()
 
@@ -66,8 +66,8 @@ def highlight_inactivity(data):
 
 # ✅ Function to Send Email
 def send_email(recipient, subject, body):
-    sender_email = "your-email@gmail.com"
-    sender_password = "your-app-password"
+    sender_email = "pratikwandhe9095.com"
+    sender_password = "fixx dnwn jpin bwix"
 
     msg = MIMEText(body)
     msg["Subject"] = subject
