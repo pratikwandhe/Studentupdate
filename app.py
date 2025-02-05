@@ -65,7 +65,7 @@ def load_data(sheet):
 @st.cache_data
 def load_branch_data():
     try:
-        branch_df = pd.read_excel("new_branch1.xlsx")
+        branch_df = pd.read_excel("/mnt/data/new_branch1.xlsx")
         return branch_df
     except Exception as e:
         st.error(f"❌ Error loading branch data: {e}")
@@ -172,7 +172,7 @@ for branch, group in branch_data.groupby("Branch"):
                     server = smtplib.SMTP('smtp.gmail.com', 587)
                     server.starttls()
                     server.login("pratikwandhe9095@gmail.com", "fixx dnwn jpin bwix")
-                    server.sendmail("your_email@gmail.com", email_input, msg.as_string())
+                    server.sendmail("pratikwandhe9095@gmail.com", email_input, msg.as_string())
                     server.quit()
 
                     st.success(f"✅ Leads sent to {email_input}")
