@@ -4,7 +4,7 @@ import json
 import pandas as pd
 import smtplib
 from google.oauth2.service_account import Credentials
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # ✅ Page Configuration
 st.set_page_config(
@@ -54,13 +54,13 @@ def get_worksheet(sheet_name):
 def load_data(sheet):
     try:
         records = sheet.get_all_records()
-        return pd.DataFrame(records) if records else pd.DataFrame(columns=["Student Name", "Phone Number", "District", "Branch", "Update Count"])
+        return pd.DataFrame(records) if records else pd.DataFrame(columns=["Lead Name", "District", "Branch", "Update Count"])
     except Exception as e:
         st.error(f"❌ Error loading data from Google Sheets: {e}")
-        return pd.DataFrame(columns=["Student Name", "Phone Number", "District", "Branch", "Update Count"])
+        return pd.DataFrame(columns=["Lead Name", "District", "Branch", "Update Count"])
 
 # ✅ Load Branch Data from Excel
-@st.cache_resource
+@st.cache_data
 def load_branch_data():
     try:
         branch_df = pd.read_excel("new_branch1.xlsx")
@@ -79,7 +79,7 @@ def save_data(sheet, data):
     except Exception as e:
         st.error(f"❌ Error saving data to Google Sheets: {e}")
 
-# ✅ Highlight Inactive Leads (No update in 14 days)
+# ✅ Highlight inactive leads (No update in 14 days)
 def highlight_inactivity(data):
     today = datetime.today()
     update_date_columns = [col for col in data.columns if "Update" in col and "Date" in col]
@@ -96,45 +96,36 @@ def highlight_inactivity(data):
 
     return data
 
-# ✅ Function to Send Email
-def send_email(recipient_email, branch, lead_data):
-    sender_email = "pratikwandhe9095@gmail.com"  # Replace with your email
-    sender_password = "fixx dnwn jpin bwix"  # Replace with your password
-    subject = f"Leads Update for {branch}"
-    
-    # Formatting the email content
-    email_body = f"Hello,\n\nHere are the latest lead updates for {branch}:\n\n"
-    email_body += lead_data.to_string(index=False)
-    email_body += "\n\nBest regards,\nChaitrali's Lead Manager"
+# ✅ Email Functionality
+def send_email(email_to, subject, message):
+    sender_email = "pratikwandhe9095@gmail.com"
+    sender_password = "fixx dnwn jpin bwix"
 
     try:
         with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
             server.login(sender_email, sender_password)
-            message = f"Subject: {subject}\n\n{email_body}"
-            server.sendmail(sender_email, recipient_email, message)
+            email_message = f"Subject: {subject}\n\n{message}"
+            server.sendmail(sender_email, email_to, email_message)
         return True
     except Exception as e:
         st.error(f"❌ Error sending email: {e}")
         return False
 
-# ✅ Main App
-st.title("📊 Chaitrali's Lead Tracker")
-st.markdown("### 📌 Manage Your Leads & Stay Updated")
-
-# ✅ Load data
+# ✅ Load Data
 SHEET_NAME = "Student_Updates"
 sheet = get_worksheet(SHEET_NAME)
 students_data = load_data(sheet)
 branch_data = load_branch_data()
 
 if students_data.empty:
-    students_data = pd.DataFrame(columns=["Student Name", "Phone Number", "District", "Branch", "Update Count"])
+    students_data = pd.DataFrame(columns=["Lead Name", "District", "Branch", "Update Count"])
+
+# ✅ Sidebar: Add New Update Form
+st.sidebar.header("📌 Add New Lead Update")
 
 # ✅ Name Auto-Suggestion
-existing_names = students_data["Student Name"].unique().tolist()
-
-# 🔍 Name Autocomplete Feature
+existing_names = students_data["Lead Name"].unique().tolist()
 selected_name = st.sidebar.text_input("👤 Start typing a Lead Name", "").strip()
 
 if selected_name:
@@ -142,18 +133,15 @@ if selected_name:
     if matching_names:
         selected_name = st.sidebar.selectbox("📝 Select or Confirm Name", matching_names + [selected_name], index=0)
 
-# ✅ Sidebar: Add New Update
-st.sidebar.markdown("---")
-st.sidebar.header("📌 Add New Lead Update")
-
-if selected_name in students_data["Student Name"].values:
+# ✅ If the lead exists, only ask for an update
+if selected_name in students_data["Lead Name"].values:
     with st.sidebar.form("update_form"):
         update_text = st.text_area("📝 Enter Update")
         update_date = st.date_input("📅 Update Date", value=datetime.today())
         submit_button = st.form_submit_button("✅ Add Update")
 
     if submit_button and update_text:
-        student_row = students_data[students_data["Student Name"] == selected_name]
+        student_row = students_data[students_data["Lead Name"] == selected_name]
         update_count = int(student_row["Update Count"].values[0]) + 1
         update_text_col = f"Update {update_count} Text"
         update_date_col = f"Update {update_count} Date"
@@ -162,15 +150,15 @@ if selected_name in students_data["Student Name"].values:
             students_data[update_text_col] = ""
             students_data[update_date_col] = ""
 
-        students_data.loc[students_data["Student Name"] == selected_name, update_text_col] = update_text
-        students_data.loc[students_data["Student Name"] == selected_name, update_date_col] = update_date.strftime('%Y-%m-%d')
-        students_data.loc[students_data["Student Name"] == selected_name, "Update Count"] = update_count
+        students_data.loc[students_data["Lead Name"] == selected_name, update_text_col] = update_text
+        students_data.loc[students_data["Lead Name"] == selected_name, update_date_col] = update_date.strftime('%Y-%m-%d')
+        students_data.loc[students_data["Lead Name"] == selected_name, "Update Count"] = update_count
 
-        students_data = highlight_inactivity(students_data)
         save_data(sheet, students_data)
         st.success(f"✅ Update #{update_count} added for {selected_name}")
 
 # ✅ Display Leads by Branch
+st.markdown("## 🏢 Leads by Branch")
 for branch, group in branch_data.groupby("Branch"):
     st.markdown(f"### 🏢 {branch}")
     branch_head = group.iloc[0]
@@ -179,9 +167,5 @@ for branch, group in branch_data.groupby("Branch"):
     branch_leads = students_data[students_data["Branch"] == branch]
     if not branch_leads.empty:
         st.dataframe(branch_leads, use_container_width=True)
-        recipient_email = st.text_input(f"📧 Enter Email for {branch}", key=branch)
-        if st.button(f"📩 Send Leads to {branch} Head", key=f"send_{branch}"):
-            if send_email(recipient_email, branch, branch_leads):
-                st.success(f"✅ Email sent successfully to {recipient_email}")
 
 st.markdown("<hr><p style='text-align: center;'>© 2025 Chaitrali's Lead Manager</p>", unsafe_allow_html=True)
