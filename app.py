@@ -99,7 +99,7 @@ def highlight_inactivity(data):
     return data
 
 # ✅ Load Data
-SHEET_NAME = "Student_updates"
+SHEET_NAME = "Student_Updates"
 sheet = get_worksheet(SHEET_NAME)
 students_data = load_data(sheet)
 branch_data = load_branch_data()
