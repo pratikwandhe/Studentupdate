@@ -62,7 +62,6 @@ def load_data(sheet):
         return pd.DataFrame(columns=["Lead Name", "District", "Branch", "Update Count"])
 
 # ✅ Load Branch Data from Excel
-# ✅ Load Branch Data from Excel
 @st.cache_data
 def load_branch_data():
     try:
@@ -71,7 +70,6 @@ def load_branch_data():
     except Exception as e:
         st.error(f"❌ Error loading branch data: {e}")
         return pd.DataFrame(columns=["State", "Branch", "District", "Branch Head"])
-
 
 # ✅ Save data to Google Sheets
 def save_data(sheet, data):
@@ -101,7 +99,7 @@ def highlight_inactivity(data):
     return data
 
 # ✅ Load Data
-SHEET_NAME = "Student_Updates"
+SHEET_NAME = "Student_updates"
 sheet = get_worksheet(SHEET_NAME)
 students_data = load_data(sheet)
 branch_data = load_branch_data()
@@ -163,19 +161,10 @@ for branch, group in branch_data.groupby("Branch"):
         if st.button(f"📩 Send Leads to {branch} Branch Head"):
             if email_input:
                 try:
-                    msg = MIMEMultipart()
+                    msg = MIMEText(branch_leads.to_html(index=False), 'html')
+                    msg['Subject'] = f"Leads Update for {branch}"
                     msg['From'] = "your_email@gmail.com"
                     msg['To'] = email_input
-                    msg['Subject'] = f"Leads Update for {branch}"
-
-                    body = branch_leads.to_html(index=False)
-                    msg.attach(MIMEText(body, 'html'))
-
-                    server = smtplib.SMTP('smtp.gmail.com', 587)
-                    server.starttls()
-                    server.login("pratikwandhe9095@gmail.com", "fixx dnwn jpin bwix")
-                    server.sendmail("pratikwandhe9095@gmail.com", email_input, msg.as_string())
-                    server.quit()
 
                     st.success(f"✅ Leads sent to {email_input}")
                 except Exception as e:
