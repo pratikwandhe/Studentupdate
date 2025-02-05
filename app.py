@@ -4,9 +4,8 @@ import json
 import pandas as pd
 import smtplib
 from google.oauth2.service_account import Credentials
-from datetime import datetime, timedelta
+from datetime import datetime
 from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 # ✅ Page Configuration
 st.set_page_config(
@@ -163,13 +162,30 @@ for branch, group in branch_data.groupby("Branch"):
                 try:
                     msg = MIMEText(branch_leads.to_html(index=False), 'html')
                     msg['Subject'] = f"Leads Update for {branch}"
-                    msg['From'] = "your_email@gmail.com"
+                    msg['From'] = "your_email@gmail.com"  # Replace with your email
                     msg['To'] = email_input
+
+                    # Set up the SMTP server
+                    with smtplib.SMTP('smtp.gmail.com', 587) as server:
+                        server.starttls()
+                        server.login("your_email@gmail.com", "your_password")  # Replace with your credentials
+                        server.sendmail(msg['From'], msg['To'], msg.as_string())
 
                     st.success(f"✅ Leads sent to {email_input}")
                 except Exception as e:
                     st.error(f"❌ Failed to send email: {e}")
             else:
                 st.warning("⚠️ Please enter an email before sending.")
+
+# ✅ Display Alerts for Inactive Leads
+st.markdown("## ⚠️ Alerts for Inactive Leads")
+students_data = highlight_inactivity(students_data)
+if "Inactive" in students_data.columns:
+    alerts = students_data[students_data["Inactive"] == True]
+    if not alerts.empty:
+        st.warning("🚨 The following leads have no updates in over 14 days:")
+        st.dataframe(alerts[["Lead Name", "Days Since Last Update"]])
+    else:
+        st.success("✅ All leads have recent updates.")
 
 st.markdown("<hr><p style='text-align: center;'>© 2025 Chaitrali's Lead Manager</p>", unsafe_allow_html=True)
