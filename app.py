@@ -88,7 +88,7 @@ def send_email(recipient, subject, body):
 st.title("📊 Chaitrali's Lead Tracker")
 
 # Google Sheet
-SHEET_NAME = "Lead_Tracker"
+SHEET_NAME = "Student_Updates"
 sheet = get_worksheet(SHEET_NAME)
 students_data = load_data(sheet)
 
