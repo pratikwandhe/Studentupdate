@@ -189,13 +189,13 @@ for branch, group in branch_data.groupby("Branch"):
                 try:
                     msg = MIMEText(branch_leads.to_html(index=False), 'html')
                     msg['Subject'] = f"Leads Update for {branch}"
-                    msg['From'] = "your_email@gmail.com"  # Replace with your email
+                    msg['From'] = "pratikwandhe9095@gmail.com"  # Replace with your email
                     msg['To'] = email_input
 
                     # Set up the SMTP server
                     with smtplib.SMTP('smtp.gmail.com', 587) as server:
                         server.starttls()
-                        server.login("your_email@gmail.com", "your_password")  # Replace with your credentials
+                        server.login("pratikwandhe9095@gmail.com", "fixx dnwn jpin bwix")  # Replace with your credentials
                         server.sendmail(msg['From'], msg['To'], msg.as_string())
 
                     st.success(f"✅ Leads sent to {email_input}")
